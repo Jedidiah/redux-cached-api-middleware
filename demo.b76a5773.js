@@ -38947,7 +38947,30 @@ var _default = {
   selectors: selectors
 };
 exports.default = _default;
-},{"./config":"XH+S","./constants":"6Zj8","./cache":"PntH","./actions":"6EgQ","./reducer":"xBFq","./selectors":"ZDIO"}],"CFBi":[function(require,module,exports) {
+},{"./config":"XH+S","./constants":"6Zj8","./cache":"PntH","./actions":"6EgQ","./reducer":"xBFq","./selectors":"ZDIO"}],"bjhr":[function(require,module,exports) {
+var MILLISECONDS_IN_MINUTE = 60000
+
+/**
+ * Google Chrome as of 67.0.3396.87 introduced timezones with offset that includes seconds.
+ * They usually appear for dates that denote time before the timezones were introduced
+ * (e.g. for 'Europe/Prague' timezone the offset is GMT+00:57:44 before 1 October 1891
+ * and GMT+01:00:00 after that date)
+ *
+ * Date#getTimezoneOffset returns the offset in minutes and would return 57 for the example above,
+ * which would lead to incorrect calculations.
+ *
+ * This function returns the timezone offset in milliseconds that takes seconds in account.
+ */
+module.exports = function getTimezoneOffsetInMilliseconds (dirtyDate) {
+  var date = new Date(dirtyDate.getTime())
+  var baseTimezoneOffset = date.getTimezoneOffset()
+  date.setSeconds(0, 0)
+  var millisecondsPartOfTimezoneOffset = date.getTime() % MILLISECONDS_IN_MINUTE
+
+  return baseTimezoneOffset * MILLISECONDS_IN_MINUTE + millisecondsPartOfTimezoneOffset
+}
+
+},{}],"CFBi":[function(require,module,exports) {
 /**
  * @category Common Helpers
  * @summary Is the given argument an instance of Date?
@@ -38970,6 +38993,7 @@ function isDate (argument) {
 module.exports = isDate
 
 },{}],"ajCz":[function(require,module,exports) {
+var getTimezoneOffsetInMilliseconds = require('../_lib/getTimezoneOffsetInMilliseconds/index.js')
 var isDate = require('../is_date/index.js')
 
 var MILLISECONDS_IN_HOUR = 3600000
@@ -39079,14 +39103,25 @@ function parse (argument, dirtyOptions) {
     }
 
     if (dateStrings.timezone) {
-      offset = parseTimezone(dateStrings.timezone)
+      offset = parseTimezone(dateStrings.timezone) * MILLISECONDS_IN_MINUTE
     } else {
-      // get offset accurate to hour in timezones that change offset
-      offset = new Date(timestamp + time).getTimezoneOffset()
-      offset = new Date(timestamp + time + offset * MILLISECONDS_IN_MINUTE).getTimezoneOffset()
+      var fullTime = timestamp + time
+      var fullTimeDate = new Date(fullTime)
+
+      offset = getTimezoneOffsetInMilliseconds(fullTimeDate)
+
+      // Adjust time when it's coming from DST
+      var fullTimeDateNextDay = new Date(fullTime)
+      fullTimeDateNextDay.setDate(fullTimeDate.getDate() + 1)
+      var offsetDiff =
+        getTimezoneOffsetInMilliseconds(fullTimeDateNextDay) -
+        getTimezoneOffsetInMilliseconds(fullTimeDate)
+      if (offsetDiff > 0) {
+        offset += offsetDiff
+      }
     }
 
-    return new Date(timestamp + time + offset * MILLISECONDS_IN_MINUTE)
+    return new Date(timestamp + time + offset)
   } else {
     return new Date(argument)
   }
@@ -39291,7 +39326,7 @@ function dayOfISOYear (isoYear, week, day) {
 
 module.exports = parse
 
-},{"../is_date/index.js":"CFBi"}],"pfSt":[function(require,module,exports) {
+},{"../_lib/getTimezoneOffsetInMilliseconds/index.js":"bjhr","../is_date/index.js":"CFBi"}],"pfSt":[function(require,module,exports) {
 var parse = require('../parse/index.js')
 
 /**
@@ -41321,4 +41356,4 @@ _reactDom.default.render(_react.default.createElement(_reactRedux.Provider, {
 if (undefined !== 'true') (0, _registerServiceWorker.default)();
 if (module.hot) module.hot.accept();
 },{"react":"1n8/","react-dom":"NKHc","react-redux":"jYI/","redux-persist/integration/react":"4j42","./registerServiceWorker":"xv3Y","babel-polyfill":"wllv","whatwg-fetch":"MCp7","./App":"lY9v","./state":"dm40","./index.css":"vKFU"}]},{},["Focm"], null)
-//# sourceMappingURL=/redux-cached-api-middleware/demo.13069487.map
+//# sourceMappingURL=/redux-cached-api-middleware/demo.0ab84e4c.map
